@@ -10,7 +10,8 @@ URLS = {
     "top": "https://news.yahoo.co.jp/rss/topics/top-picks.xml",
     "eco": "https://news.yahoo.co.jp/rss/topics/business.xml",
     "it": "https://news.yahoo.co.jp/rss/topics/it.xml",
-    "int": "https://news.yahoo.co.jp/rss/topics/world.xml"
+    "int": "https://news.yahoo.co.jp/rss/topics/world.xml",
+    "tgt": "https://togetter.com/rss/hot"
 }
 
 def fetch_rss_metadata(url, cat):
@@ -24,19 +25,26 @@ def fetch_rss_metadata(url, cat):
             title = item.find('title').text if item.find('title') is not None else ''
             link = item.find('link').text if item.find('link') is not None else ''
             pub_date_str = item.find('pubDate').text if item.find('pubDate') is not None else ''
+            desc = item.find('description').text if item.find('description') is not None else ''
             dt = None
             if pub_date_str:
                 try:
                     dt = parsedate_to_datetime(pub_date_str)
                 except Exception:
                     pass
-            items.append({"t": title, "l": link, "d": pub_date_str, "dt": dt, "cat": cat})
+            items.append({"t": title, "l": link, "d": pub_date_str, "dt": dt, "cat": cat, "desc": desc})
         return items
     except Exception as e:
         print(f"Error fetching {cat}: {e}")
         return []
 
-def scrape_full_text(link):
+def scrape_full_text(link, cat, desc):
+    if cat == 'tgt':
+        # Togetter requests generally block simple scraping or take too long.
+        # So we use the robust description from RSS.
+        content_text = desc if desc else "詳細なまとめはリンク先でご覧ください。"
+        return content_text
+
     content_text = ""
     try:
         art_url = link
@@ -79,7 +87,7 @@ def main():
     final_data = []
     for item in top_30:
         print(f"Scraping: {item['t']}")
-        content = scrape_full_text(item['l'])
+        content = scrape_full_text(item['l'], item['cat'], item.get('desc', ''))
         final_data.append({
             "t": item["t"],
             "l": item["l"],

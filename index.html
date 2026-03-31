@@ -49,6 +49,7 @@ nav::-webkit-scrollbar { display: none; }
 .tag-eco { background: #4cd964; }
 .tag-it  { background: #0a84ff; }
 .tag-int { background: #ff9500; }
+.tag-tgt { background: #ff2a2a; }
 .date { font-size: 12px; color: var(--date-color); }
 
 /* Touch/Swipe Extensions */
@@ -73,6 +74,7 @@ nav::-webkit-scrollbar { display: none; }
     <div class="tab" data-filter="eco">経済</div>
     <div class="tab" data-filter="it">IT</div>
     <div class="tab" data-filter="int">国際</div>
+    <div class="tab" data-filter="tgt">まとめ</div>
   </nav>
 </header>
 <div class="container" id="container">
@@ -88,10 +90,10 @@ nav::-webkit-scrollbar { display: none; }
     <div class="av-title" id="av-title"></div>
     <div class="av-date" id="av-date"></div>
     <div class="av-content" id="av-content"></div>
-    <a href="#" class="av-external" id="av-external" target="_blank" rel="noopener">🌐 オリジナル記事を読む (Yahoo!)</a>
+    <a href="#" class="av-external" id="av-external" target="_blank" rel="noopener">🌐 オリジナル記事を読む</a>
   </div>
 </div><script>
-const LABELS = { 'top':'総合', 'eco':'経済', 'it':'IT', 'int':'国際' };
+const LABELS = { 'top':'総合', 'eco':'経済', 'it':'IT', 'int':'国際', 'tgt':'まとめ' };
 const TABS = document.querySelectorAll('.tab');
 const CONTAINER = document.getElementById('container');
 
