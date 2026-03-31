@@ -2,6 +2,8 @@ import urllib.request
 import xml.etree.ElementTree as ET
 import json
 import os
+import re
+from bs4 import BeautifulSoup
 
 URLS = {
     "top": "https://news.yahoo.co.jp/rss/topics/top-picks.xml",
@@ -16,19 +18,37 @@ def fetch_rss(url):
         xml_data = res.read()
     root = ET.fromstring(xml_data)
     items = []
-    # 帯域節約のため主要な記事10件程度に絞るか、またはそのまま返す。まずは全て返す
     count = 0
     for item in root.findall('./channel/item'):
-        if count >= 15: # 15件制限でさらなる軽量化
+        if count >= 10: # 軽量化と処理速度のため10件に制限
             break
         title = item.find('title').text if item.find('title') is not None else ''
         link = item.find('link').text if item.find('link') is not None else ''
-        # Yahoo RSSの日付フォーマット "Mon, 31 Mar 2026 10:00:00 GMT"等。長いので削るなどの処理も可能だがまずはそのままか少し削る
         pub_date = item.find('pubDate').text if item.find('pubDate') is not None else ''
         
-        # 不要なパラメータを削る軽量化: t=title, l=link, d=date
-        items.append({"t": title, "l": link, "d": pub_date})
+        # ----- 全文スクレイピング -----
+        content_text = ""
+        try:
+            art_req = urllib.request.Request(link, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(art_req, timeout=5) as art_res:
+                html = art_res.read()
+                soup = BeautifulSoup(html, 'html.parser')
+                # Yahooニュースは通常、'.article_body' や 'p.highLightSearchTarget' などの中に段落本文がある
+                paragraphs = soup.select('div.article_body p.highLightSearchTarget, div.article_body p')
+                if paragraphs:
+                    content_text = "\n\n".join(p.get_text(strip=True) for p in paragraphs)
+                else:
+                    content_text = "本文の取得に失敗しました。元のリンクからお読みください。"
+        except Exception as e:
+            content_text = f"情報の取得に失敗しました。{e}"
+        
+        # 文字数制限（2000文字程度を上限とする）
+        if len(content_text) > 2000:
+            content_text = content_text[:2000] + "...\n(文字数制限により省略)"
+
+        items.append({"t": title, "l": link, "d": pub_date, "c": content_text})
         count += 1
+        
     return items
 
 def main():
@@ -42,8 +62,9 @@ def main():
     
     os.makedirs('data', exist_ok=True)
     with open('data/news.json', 'w', encoding='utf-8') as f:
-        # separators=(',', ':')を指定してスペースを完全に排除
+        # separatorsを指定し、改行等のエスケープ文字の容量も抑える
         json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
 
 if __name__ == '__main__':
     main()
+
