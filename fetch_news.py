@@ -75,17 +75,17 @@ def scrape_full_text(link, cat, desc):
 def main():
     all_items = []
     for key, url in URLS.items():
-        all_items.extend(fetch_rss_metadata(url, key))
+        items = fetch_rss_metadata(url, key)
+        valid_cat_items = [i for i in items if i['dt'] is not None]
+        valid_cat_items.sort(key=lambda x: x['dt'], reverse=True)
+        all_items.extend(valid_cat_items[:10])
     
-    # Sort by datetime (newest first)
-    valid_items = [i for i in all_items if i['dt'] is not None]
-    valid_items.sort(key=lambda x: x['dt'], reverse=True)
+    # Sort overall by datetime (newest first)
+    all_items.sort(key=lambda x: x['dt'], reverse=True)
     
-    top_30 = valid_items[:30]
-    
-    # Scrape body for top 30
+    # Scrape body for the selected items
     final_data = []
-    for item in top_30:
+    for item in all_items:
         print(f"Scraping: {item['t']}")
         content = scrape_full_text(item['l'], item['cat'], item.get('desc', ''))
         final_data.append({

@@ -140,7 +140,16 @@ async function loadNews() {
   try {
     const res = await fetch(`data/news.json?_t=${Date.now()}`); 
     if(res.ok) {
-      currentData = await res.json();
+      let data = await res.json();
+      if (!Array.isArray(data)) {
+        // Fallback for old cached dict format {top:[], eco:[], ...}
+        let arr = [];
+        for (let k in data) {
+           arr.push(...data[k]);
+        }
+        data = arr.sort((a, b) => new Date(b.d) - new Date(a.d));
+      }
+      currentData = data;
       renderData();
     }
   } catch (e) {
