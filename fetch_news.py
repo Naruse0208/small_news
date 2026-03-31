@@ -29,12 +29,22 @@ def fetch_rss(url):
         # ----- 全文スクレイピング -----
         content_text = ""
         try:
-            art_req = urllib.request.Request(link, headers={'User-Agent': 'Mozilla/5.0'})
+            art_url = link
+            # YahooのRSSは /pickup/ のリンクを返すことが多いため、実際の記事URLを探す
+            if 'news.yahoo.co.jp/pickup/' in link:
+                pickup_req = urllib.request.Request(link, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(pickup_req, timeout=5) as p_res:
+                    p_soup = BeautifulSoup(p_res.read(), 'html.parser')
+                    next_a = p_soup.find('a', href=lambda h: h and 'news.yahoo.co.jp/articles/' in h)
+                    if next_a:
+                        art_url = next_a['href']
+                        
+            art_req = urllib.request.Request(art_url, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(art_req, timeout=5) as art_res:
                 html = art_res.read()
                 soup = BeautifulSoup(html, 'html.parser')
                 # Yahooニュースは通常、'.article_body' や 'p.highLightSearchTarget' などの中に段落本文がある
-                paragraphs = soup.select('div.article_body p.highLightSearchTarget, div.article_body p')
+                paragraphs = soup.select('div.article_body p.highLightSearchTarget, div.article_body p, .article_body p, p.highLightSearchTarget')
                 if paragraphs:
                     content_text = "\n\n".join(p.get_text(strip=True) for p in paragraphs)
                 else:

@@ -1,55 +1,56 @@
 import urllib.request
-import re
-from html.parser import HTMLParser
+from bs4 import BeautifulSoup
+import xml.etree.ElementTree as ET
 
-class YahooNewsParser(HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.in_article_body = False
-        self.text_content = []
+url = "https://news.yahoo.co.jp/rss/topics/top-picks.xml"
+req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+with urllib.request.urlopen(req) as res:
+    xml_data = res.read()
+root = ET.fromstring(xml_data)
 
-    def handle_starttag(self, tag, attrs):
-        if tag == "div":
-            for attr, val in attrs:
-                if attr == "class" and "article_body" in val:
-                    self.in_article_body = True
-                    break
+item = root.find('./channel/item')
+link = item.find('link').text
+print(f"Scraping link: {link}")
 
-    def handle_endtag(self, tag):
-        # We'll just grab everything inside the first div.article_body
-        pass
+try:
+    art_req = urllib.request.Request(link, headers={'User-Agent': 'Mozilla/5.0'})
+    with urllib.request.urlopen(art_req) as art_res:
+        html = art_res.read()
+        soup = BeautifulSoup(html, 'html.parser')
 
-    def handle_data(self, data):
-        if self.in_article_body:
-            # Append if not purely whitespace
-            if data.strip():
-                self.text_content.append(data.strip())
-
-def scrape_yahoo(url):
-    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-    try:
-        with urllib.request.urlopen(req) as res:
-            html = res.read().decode('utf-8', errors='ignore')
-            
-            # Use regex to find article body content roughly
-            import re
-            # Extract content from <p class="highLightSearchTarget"> since it holds paragraph bodies, or .article_body elements
-            # A simple regex for taking content roughly:
-            match = re.search(r'<div[^>]*class="[^"]*article_body[^"]*"[^>]*>(.*?)</div>\s*<(!--|div|script)', html, re.DOTALL | re.IGNORECASE)
-            
-            if match:
-                content = match.group(1)
-                # Strip all inner tags
-                text = re.sub(r'<[^>]+>', '', content)
-                # Decode HTML entities
-                import html as htmllib
-                text = htmllib.unescape(text)
-                return text.strip()
+        # Check if it's a pickup page
+        if 'news.yahoo.co.jp/pickup/' in link:
+            # Need to find the actual article link
+            # The button usually says "続きを読む" or "記事全文を読む"
+            # In Yahoo it's often an <a> tag with href containing "articles/"
+            next_link_tag = soup.find('a', href=lambda h: h and 'news.yahoo.co.jp/articles/' in h)
+            if next_link_tag:
+                actual_link = next_link_tag['href']
+                print(f"Found actual article link: {actual_link}")
+                
+                # Fetch actual article
+                art_req2 = urllib.request.Request(actual_link, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(art_req2) as art_res2:
+                    soup2 = BeautifulSoup(art_res2.read(), 'html.parser')
+                    
+                    # paragraphs
+                    # The class name is dynamic often, so finding by div.article_body or something similar
+                    # Sometimes it's just 'div' with class 'highLightSearchTarget' or 'p' tags inside some container
+                    paragraphs = soup2.select('div.article_body p.highLightSearchTarget, div.article_body p, .article_body p, p.highLightSearchTarget')
+                    if paragraphs:
+                        print("\n--- Parsed Content ---")
+                        print("\n\n".join(p.get_text(strip=True) for p in paragraphs))
+                    else:
+                        print("Article select failed.")
+                        for p in soup2.find_all('p'):
+                            print(p)
             else:
-                return "本文を取得できませんでした。"
-    except Exception as e:
-        return f"エラー: {e}"
-
-if __name__ == "__main__":
-    url = "https://news.yahoo.co.jp/articles/86e96a4ce0ce24de13a37afcadb9442a842f2ed1" # example article
-    print(scrape_yahoo(url))
+                print("Could not find article redirect link on pickup page.")
+        else:
+            # Direct article
+            paragraphs = soup.select('div.article_body p.highLightSearchTarget, div.article_body p')
+            if paragraphs:
+                print("\n--- Parsed Content ---")
+                print("\n\n".join(p.get_text(strip=True) for p in paragraphs))
+except Exception as e:
+    print(f"Exception: {e}")
