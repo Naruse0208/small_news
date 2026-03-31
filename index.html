@@ -33,17 +33,22 @@
 }
 body { margin: 0; padding: 0; background: var(--bg-color); color: var(--text-color); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow: hidden; overscroll-behavior-y: none; }
 header { padding: 10px 0; background: var(--header-bg); position: sticky; top: 0; z-index: 10; display: flex; justify-content: center; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
-nav { display: flex; gap: 20px; }
-.tab { color: var(--tab-color); text-decoration: none; font-size: 16px; font-weight: bold; padding: 5px 10px; cursor: pointer; transition: color 0.3s; user-select: none; }
+nav { display: flex; gap: 15px; overflow-x: auto; padding: 0 15px; width: 100vw; box-sizing: border-box; }
+nav::-webkit-scrollbar { display: none; }
+.tab { color: var(--tab-color); text-decoration: none; font-size: 15px; font-weight: bold; padding: 5px 10px; cursor: pointer; transition: color 0.3s; user-select: none; white-space: nowrap; }
 .tab.active { color: var(--tab-active); border-bottom: 2px solid var(--border-color); }
-.container { display: flex; width: 100vw; height: calc(100vh - 50px); overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; }
+.container { width: 100vw; height: calc(100vh - 50px); overflow-y: auto; padding: 10px 15px; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
 .container::-webkit-scrollbar { display: none; }
-.page { flex: 0 0 100vw; height: 100%; scroll-snap-align: start; overflow-y: auto; padding: 10px 15px; box-sizing: border-box; -webkit-overflow-scrolling: touch; }
-.page::-webkit-scrollbar { display: none; }
 .article { display: block; padding: 15px; margin-bottom: 12px; background: var(--card-bg); border-radius: 8px; text-decoration: none; color: inherit; transition: background 0.2s, transform 0.1s; cursor: pointer; }
 .article:active { background: var(--card-active); transform: scale(0.98); }
 .article.read .title { color: var(--tab-color); font-weight: 400; }
-.title { font-size: 16px; line-height: 1.4; font-weight: 500; margin-bottom: 6px; transition: color 0.2s; }
+.title { font-size: 16px; line-height: 1.4; font-weight: 500; margin-bottom: 8px; transition: color 0.2s; }
+.meta { display: flex; justify-content: space-between; align-items: center; }
+.tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; color: #fff; }
+.tag-top { background: #ff3b30; }
+.tag-eco { background: #4cd964; }
+.tag-it  { background: #0a84ff; }
+.tag-int { background: #ff9500; }
 .date { font-size: 12px; color: var(--date-color); }
 
 /* Touch/Swipe Extensions */
@@ -63,17 +68,15 @@ nav { display: flex; gap: 20px; }
 <div class="refresh-indicator" id="refresh-indicator">↓ 更新するには下に引く...</div>
 <header>
   <nav id="tabs">
-    <div class="tab active" data-target="0">総合</div>
-    <div class="tab" data-target="1">経済</div>
-    <div class="tab" data-target="2">IT</div>
-    <div class="tab" data-target="3">国際</div>
+    <div class="tab active" data-filter="all">すべて</div>
+    <div class="tab" data-filter="top">総合</div>
+    <div class="tab" data-filter="eco">経済</div>
+    <div class="tab" data-filter="it">IT</div>
+    <div class="tab" data-filter="int">国際</div>
   </nav>
 </header>
 <div class="container" id="container">
-  <div class="page" id="page-top"><div style="text-align:center;color:#888;padding-top:20px;">Loading...</div></div>
-  <div class="page" id="page-eco"><div style="text-align:center;color:#888;padding-top:20px;">Loading...</div></div>
-  <div class="page" id="page-it"><div style="text-align:center;color:#888;padding-top:20px;">Loading...</div></div>
-  <div class="page" id="page-int"><div style="text-align:center;color:#888;padding-top:20px;">Loading...</div></div>
+  <div style="text-align:center;color:var(--tab-color);padding-top:20px;">Loading...</div>
 </div>
 
 <!-- Dedicated Article View -->
@@ -88,8 +91,7 @@ nav { display: flex; gap: 20px; }
     <a href="#" class="av-external" id="av-external" target="_blank" rel="noopener">🌐 オリジナル記事を読む (Yahoo!)</a>
   </div>
 </div><script>
-const KEYS = ['top', 'eco', 'it', 'int'];
-const PAGES = KEYS.map(k => document.getElementById(`page-${k}`));
+const LABELS = { 'top':'総合', 'eco':'経済', 'it':'IT', 'int':'国際' };
 const TABS = document.querySelectorAll('.tab');
 const CONTAINER = document.getElementById('container');
 
@@ -101,40 +103,43 @@ function formatDate(dStr) {
   return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-let currentData = {};
-
+let currentData = [];
 let readUrls = new Set(JSON.parse(localStorage.getItem('small_news_read') || '[]'));
+let currentFilter = 'all';
 
 function markAsRead(url) {
   if(!readUrls.has(url)) {
     readUrls.add(url);
-    // 蓄積しすぎないよう直近200件だけ保持
     const arr = Array.from(readUrls).slice(-200); 
     readUrls = new Set(arr);
     localStorage.setItem('small_news_read', JSON.stringify(arr));
   }
 }
 
-function renderData(data) {
-  currentData = data;
-  KEYS.forEach((key, idx) => {
-    const list = data[key] || [];
-    let html = '';
-    list.forEach((item, i) => {
-      const isRead = readUrls.has(item.l) ? ' read' : '';
-      html += `<div class="article${isRead}" data-key="${key}" data-index="${i}"><div class="title">${item.t}</div><div class="date">${formatDate(item.d)}</div></div>`;
-    });
-    if(html === '') html = '<div style="text-align:center;color:var(--tab-color);padding-top:20px;">No Data</div>';
-    PAGES[idx].innerHTML = html;
+function renderData() {
+  const list = currentData || [];
+  let html = '';
+  list.forEach((item, i) => {
+    if(currentFilter !== 'all' && item.cat !== currentFilter) return;
+    const isRead = readUrls.has(item.l) ? ' read' : '';
+    html += `<div class="article${isRead}" data-index="${i}">
+        <div class="title">${item.t}</div>
+        <div class="meta">
+            <span class="tag tag-${item.cat}">${LABELS[item.cat]}</span>
+            <span class="date">${formatDate(item.d)}</span>
+        </div>
+    </div>`;
   });
+  if(html === '') html = '<div style="text-align:center;color:var(--tab-color);padding-top:20px;">No Data</div>';
+  CONTAINER.innerHTML = html;
 }
 
 async function loadNews() {
   try {
-    const res = await fetch(`data/news.json?_t=${Date.now()}`); // Cache busting param
+    const res = await fetch(`data/news.json?_t=${Date.now()}`); 
     if(res.ok) {
-      const data = await res.json();
-      renderData(data);
+      currentData = await res.json();
+      renderData();
     }
   } catch (e) {
     console.error('Fetch error:', e);
@@ -143,24 +148,13 @@ async function loadNews() {
 
 TABS.forEach(t => {
   t.addEventListener('click', () => {
-    const idx = parseInt(t.dataset.target);
-    CONTAINER.scrollTo({ left: window.innerWidth * idx, behavior: 'smooth' });
+    TABS.forEach(tab => tab.classList.remove('active'));
+    t.classList.add('active');
+    currentFilter = t.dataset.filter;
+    renderData();
+    CONTAINER.scrollTo({ top: 0, behavior: 'smooth' });
   });
 });
-
-let scrollTimeout;
-CONTAINER.addEventListener('scroll', () => {
-    if(scrollTimeout) cancelAnimationFrame(scrollTimeout);
-    scrollTimeout = requestAnimationFrame(() => {
-        const scrollLeft = CONTAINER.scrollLeft;
-        const width = window.innerWidth || CONTAINER.clientWidth;
-        const idx = Math.round(scrollLeft / width);
-        TABS.forEach((t, i) => {
-            if (i === idx) t.classList.add('active');
-            else t.classList.remove('active');
-        });
-    });
-}, { passive: true });
 
 // --- Article View Logic ---
 const articleView = document.getElementById('article-view');
@@ -173,10 +167,9 @@ const avExt = document.getElementById('av-external');
 CONTAINER.addEventListener('click', (e) => {
   const artDiv = e.target.closest('.article');
   if(artDiv) {
-      const k = artDiv.dataset.key;
       const i = parseInt(artDiv.dataset.index);
-      if(!currentData[k] || !currentData[k][i]) return;
-      const item = currentData[k][i];
+      if(!currentData[i]) return;
+      const item = currentData[i];
       avTitle.textContent = item.t;
       avDate.textContent = formatDate(item.d);
       avContent.textContent = item.c || "(本文が見つかりませんでした)";
@@ -220,9 +213,7 @@ let ptrStartY = 0;
 let isPulling = false;
 
 CONTAINER.addEventListener('touchstart', e => {
-  const width = window.innerWidth || CONTAINER.clientWidth;
-  const activePage = PAGES[Math.round(CONTAINER.scrollLeft / width)];
-  if(activePage && activePage.scrollTop === 0) {
+  if(CONTAINER.scrollTop <= 0) {
       isPulling = true;
       ptrStartY = e.touches[0].clientY;
   }
