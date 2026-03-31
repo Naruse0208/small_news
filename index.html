@@ -42,7 +42,8 @@ nav { display: flex; gap: 20px; }
 .page::-webkit-scrollbar { display: none; }
 .article { display: block; padding: 15px; margin-bottom: 12px; background: var(--card-bg); border-radius: 8px; text-decoration: none; color: inherit; transition: background 0.2s, transform 0.1s; cursor: pointer; }
 .article:active { background: var(--card-active); transform: scale(0.98); }
-.title { font-size: 16px; line-height: 1.4; font-weight: 500; margin-bottom: 6px; }
+.article.read .title { color: var(--tab-color); font-weight: 400; }
+.title { font-size: 16px; line-height: 1.4; font-weight: 500; margin-bottom: 6px; transition: color 0.2s; }
 .date { font-size: 12px; color: var(--date-color); }
 
 /* Touch/Swipe Extensions */
@@ -102,13 +103,26 @@ function formatDate(dStr) {
 
 let currentData = {};
 
+let readUrls = new Set(JSON.parse(localStorage.getItem('small_news_read') || '[]'));
+
+function markAsRead(url) {
+  if(!readUrls.has(url)) {
+    readUrls.add(url);
+    // 蓄積しすぎないよう直近200件だけ保持
+    const arr = Array.from(readUrls).slice(-200); 
+    readUrls = new Set(arr);
+    localStorage.setItem('small_news_read', JSON.stringify(arr));
+  }
+}
+
 function renderData(data) {
   currentData = data;
   KEYS.forEach((key, idx) => {
     const list = data[key] || [];
     let html = '';
     list.forEach((item, i) => {
-      html += `<div class="article" data-key="${key}" data-index="${i}"><div class="title">${item.t}</div><div class="date">${formatDate(item.d)}</div></div>`;
+      const isRead = readUrls.has(item.l) ? ' read' : '';
+      html += `<div class="article${isRead}" data-key="${key}" data-index="${i}"><div class="title">${item.t}</div><div class="date">${formatDate(item.d)}</div></div>`;
     });
     if(html === '') html = '<div style="text-align:center;color:var(--tab-color);padding-top:20px;">No Data</div>';
     PAGES[idx].innerHTML = html;
@@ -168,6 +182,10 @@ CONTAINER.addEventListener('click', (e) => {
       avContent.textContent = item.c || "(本文が見つかりませんでした)";
       avExt.href = item.l;
       articleView.classList.add('open');
+      
+      // 既読マークをつける
+      markAsRead(item.l);
+      artDiv.classList.add('read');
   }
 });
 
