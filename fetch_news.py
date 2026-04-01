@@ -121,13 +121,14 @@ def scrape_full_text(link, site, desc):
                         text = re.sub(r'twitter\.com/[^\s]+', '', text)
                         text = re.sub(r'pic\.x\.com/[^\s]+', '', text)
                         text = re.sub(r'\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}', '', text)
+                        text = re.sub(r'@[a-zA-Z0-9_]+', '', text)
                         
                         # 余分な改行を整理
                         text = '\n'.join([line for line in text.split('\n') if line.strip()])
                         if text:
                             extracted.append(text)
                     # ポスト間に十分な改行を入れて見やすくする
-                    content_text = "\n\n━━━━━━━━━━\n\n".join(extracted)
+                    content_text = "\n\n\n━━━━━━━━━━\n\n\n".join(extracted)
                 
                 if not content_text:
                     # うまく取れなければフォールバック
