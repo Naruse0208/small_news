@@ -70,11 +70,8 @@ nav::-webkit-scrollbar { display: none; }
 <header>
   <nav id="tabs">
     <div class="tab active" data-filter="all">すべて</div>
-    <div class="tab" data-filter="top">総合</div>
-    <div class="tab" data-filter="eco">経済</div>
-    <div class="tab" data-filter="it">IT</div>
-    <div class="tab" data-filter="int">国際</div>
-    <div class="tab" data-filter="tgt">まとめ</div>
+    <div class="tab" data-filter="yahoo">Yahoo!</div>
+    <div class="tab" data-filter="togetter">Togetter</div>
   </nav>
 </header>
 <div class="container" id="container">
@@ -122,7 +119,9 @@ function renderData() {
   const list = currentData || [];
   let html = '';
   list.forEach((item, i) => {
-    if(currentFilter !== 'all' && item.cat !== currentFilter) return;
+    // 過去のデータなどsiteがない場合はフォールバックとしてcatをもとにsiteを推定
+    const itmSite = item.site || (item.cat === 'tgt' ? 'togetter' : 'yahoo');
+    if(currentFilter !== 'all' && itmSite !== currentFilter) return;
     const isRead = readUrls.has(item.l) ? ' read' : '';
     html += `<div class="article${isRead}" data-index="${i}">
         <div class="title">${item.t}</div>

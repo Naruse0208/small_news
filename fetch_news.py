@@ -32,7 +32,8 @@ def fetch_rss_metadata(url, cat):
                     dt = parsedate_to_datetime(pub_date_str)
                 except Exception:
                     pass
-            items.append({"t": title, "l": link, "d": pub_date_str, "dt": dt, "cat": cat, "desc": desc})
+            site = "togetter" if cat == "tgt" else "yahoo"
+            items.append({"t": title, "l": link, "d": pub_date_str, "dt": dt, "cat": cat, "desc": desc, "site": site})
         return items
     except Exception as e:
         print(f"Error fetching {cat}: {e}")
@@ -93,6 +94,7 @@ def main():
             "l": item["l"],
             "d": item["d"],
             "cat": item["cat"],
+            "site": item.get("site", "yahoo"),
             "c": content
         })
     
