@@ -49,7 +49,12 @@ nav::-webkit-scrollbar { display: none; }
 .tag-eco { background: #4cd964; }
 .tag-it  { background: #0a84ff; }
 .tag-int { background: #ff9500; }
-.tag-tgt { background: #ff2a2a; }
+.tag-dom { background: #e74c3c; }
+.tag-ent { background: #9b59b6; }
+.tag-spo { background: #3498db; }
+.tag-sci { background: #2ecc71; }
+.tag-loc { background: #f1c40f; color: #000; }
+.tag-tgt { background: #000000; color: #ffffff; }
 .date { font-size: 12px; color: var(--date-color); }
 
 /* Touch/Swipe Extensions */
@@ -90,7 +95,7 @@ nav::-webkit-scrollbar { display: none; }
     <a href="#" class="av-external" id="av-external" target="_blank" rel="noopener">🌐 オリジナル記事を読む</a>
   </div>
 </div><script>
-const LABELS = { 'top':'総合', 'eco':'経済', 'it':'IT', 'int':'国際', 'tgt':'まとめ' };
+const LABELS = { 'top':'総合', 'eco':'経済', 'it':'IT', 'int':'国際', 'dom':'国内', 'ent':'エンタメ', 'spo':'スポーツ', 'sci':'科学', 'loc':'地域', 'tgt':'X' };
 const TABS = document.querySelectorAll('.tab');
 const CONTAINER = document.getElementById('container');
 
@@ -250,6 +255,39 @@ CONTAINER.addEventListener('touchend', e => {
       });
   } else {
       refreshInd.style.opacity = 0;
+  }
+});
+
+// --- Swipe-to-switch-tabs Logic ---
+let tabTouchStartX = 0;
+let tabTouchStartY = 0;
+CONTAINER.addEventListener('touchstart', e => {
+  if(e.touches.length === 1) {
+    tabTouchStartX = e.touches[0].clientX;
+    tabTouchStartY = e.touches[0].clientY;
+  }
+}, {passive: true});
+
+CONTAINER.addEventListener('touchend', e => {
+  if(e.changedTouches.length === 1) {
+    const dx = e.changedTouches[0].clientX - tabTouchStartX;
+    const dy = e.changedTouches[0].clientY - tabTouchStartY;
+    // Horizontal swipe trigger (dx > 50, and dominant over dy)
+    if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2) {
+      const tabsArr = Array.from(TABS);
+      const activeIdx = tabsArr.findIndex(t => t.classList.contains('active'));
+      let nextIdx = activeIdx;
+      if(dx > 0) {
+          // Swipe right -> go to previous tab
+          nextIdx = activeIdx > 0 ? activeIdx - 1 : 0;
+      } else {
+          // Swipe left -> go to next tab
+          nextIdx = activeIdx < tabsArr.length - 1 ? activeIdx + 1 : tabsArr.length - 1;
+      }
+      if(nextIdx !== activeIdx) {
+          tabsArr[nextIdx].click(); // Trigger the existing click listener
+      }
+    }
   }
 });
 
