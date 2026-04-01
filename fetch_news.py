@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 import json
 import os
 import re
+from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from bs4 import BeautifulSoup
 
@@ -16,67 +17,118 @@ URLS = {
     "sci": "https://news.yahoo.co.jp/rss/topics/science.xml",
     "loc": "https://news.yahoo.co.jp/rss/topics/local.xml",
     "int": "https://news.yahoo.co.jp/rss/topics/world.xml",
-    "tgt_hot": "https://togetter.com/rss/hot",
-    "tgt_rec": "https://togetter.com/rss/recent",
-    "tgt_idx": "https://togetter.com/rss/index",
-    # TogetterはRSSだけだと数件しかとれないため、複数から引っ張る
 }
 
-# 少ない通信量にするための文字数制限
-MAX_TEXT_LEN = 250
+def fetch_yahoo_rss():
+    items = []
+    for cat, url in URLS.items():
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as res:
+                xml_data = res.read()
+            root = ET.fromstring(xml_data)
+            for item in root.findall('./channel/item'):
+                title = item.find('title').text if item.find('title') is not None else ''
+                link = item.find('link').text if item.find('link') is not None else ''
+                pub_date_str = item.find('pubDate').text if item.find('pubDate') is not None else ''
+                desc = item.find('description').text if item.find('description') is not None else ''
+                dt = None
+                if pub_date_str:
+                    try:
+                        dt = parsedate_to_datetime(pub_date_str).astimezone(timezone.utc)
+                    except Exception:
+                        pass
+                
+                # Yahoo記事の場合はPV取得不可のため空文字列、時間はdtから相対時間をフロント側で作ってもらう等
+                items.append({
+                    "t": title, "l": link, 
+                    "d": pub_date_str, "dt": dt, 
+                    "cat": cat, "desc": desc, "site": "yahoo", 
+                    "pv": "", "time": ""
+                })
+        except Exception as e:
+            print(f"Error fetching {cat}: {e}")
+    return items
 
-def fetch_rss_metadata(url, cat):
-    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-    try:
-        with urllib.request.urlopen(req, timeout=10) as res:
-            xml_data = res.read()
-        root = ET.fromstring(xml_data)
-        items = []
-        for item in root.findall('./channel/item'):
-            title = item.find('title').text if item.find('title') is not None else ''
-            link = item.find('link').text if item.find('link') is not None else ''
-            pub_date_str = item.find('pubDate').text if item.find('pubDate') is not None else ''
-            desc = item.find('description').text if item.find('description') is not None else ''
-            dt = None
-            if pub_date_str:
-                try:
-                    dt = parsedate_to_datetime(pub_date_str)
-                except Exception:
-                    pass
-            site = "togetter" if cat.startswith("tgt") else "yahoo"
-            # 表示上わかりやすいようにtgt_* は 'tgt' にまとめる
-            disp_cat = "tgt" if cat.startswith("tgt") else cat
-            items.append({"t": title, "l": link, "d": pub_date_str, "dt": dt, "cat": disp_cat, "desc": desc, "site": site})
-        return items
-    except Exception as e:
-        print(f"Error fetching {cat}: {e}")
-        return []
+def fetch_togetter_recent(limit=50):
+    items = []
+    seen = set()
+    page = 1
+    
+    while len(items) < limit and page <= 3:
+        req_url = f"https://togetter.com/recent?page={page}"
+        req = urllib.request.Request(req_url, headers={'User-Agent': 'Mozilla/5.0'})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as res:
+                soup = BeautifulSoup(res.read(), 'html.parser')
+                links = soup.find_all('a', href=lambda x: x and '/li/' in x)
+                
+                for l in links:
+                    href = l.get('href')
+                    if not href.startswith('http'):
+                        href = 'https://togetter.com' + href
+                    if href in seen: continue
+                    seen.add(href)
+                    
+                    title = l.get_text(strip=True)
+                    if not title: continue
+                    
+                    # 親要素からメタデータを漁る
+                    pv_text = ""
+                    time_text = ""
+                    if l.parent and l.parent.parent:
+                        parent_text = l.parent.parent.get_text(" ", strip=True)
+                        m_pv = re.search(r'(\d+)\s*pv', parent_text, re.IGNORECASE)
+                        m_time = re.search(r'(\d+[分時間日前]+)', parent_text)
+                        if m_pv: pv_text = m_pv.group(1)
+                        if m_time: time_text = m_time.group(1)
+                        
+                    items.append({
+                        "t": title, "l": href,
+                        "d": "", "dt": None,  # Togetterは正確な日時オブジェクトなし
+                        "cat": "tgt", "desc": "", "site": "togetter",
+                        "pv": pv_text, "time": time_text
+                    })
+                    
+                    if len(items) >= limit:
+                        break
+        except Exception as e:
+            print(f"Error fetching togetter page {page}: {e}")
+            break
+        page += 1
+    return items
 
 def scrape_full_text(link, site, desc):
     content_text = ""
     try:
         if site == 'togetter':
-            # Togetterのスクレイピング (本文からテキストを抽出)
             tgt_req = urllib.request.Request(link, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(tgt_req, timeout=5) as tgt_res:
                 soup = BeautifulSoup(tgt_res.read(), 'html.parser')
-                # 記事本体っぽいいくつかの要素からテキストを抜き出す
-                tweets = soup.select('.tweet_body, .list_tweet_box, .tweet_box, .comment_box')
+                # 1ページ目のツイート群を取得
+                tweets = soup.select('.type_tweet, .tweet_list .list_item, .tweet_box, div[data-tweet]')
                 if tweets:
-                    content_text = "\n\n".join(t.get_text(separator=' ', strip=True) for t in tweets[:5])
-                else:
-                    # うまく取れなければbodyから抽出（ヘッダなどを避けるため #__next や main 等）
+                    extracted = []
+                    for t in tweets:
+                        # 投稿者名、アイコン、リンクなどの不要情報を削除
+                        for unwanted in t.select('.status_name, .user_link, .icon, .tw-user, a[href*="/user/"], .timestamp'):
+                            unwanted.decompose()
+                        # テキストのみ取り出し
+                        text = t.get_text('\n', strip=True)
+                        # 余分な改行を整理
+                        text = '\n'.join([line for line in text.split('\n') if line.strip()])
+                        if text:
+                            extracted.append(text)
+                    content_text = "\n---\n".join(extracted)
+                
+                if not content_text:
+                    # うまく取れなければフォールバック
                     main_box = soup.find(id='__next') or soup.find('body')
                     if main_box:
-                        content_text = main_box.get_text(separator=' ', strip=True)
-                        # 不要なナビゲーションテキストをスキップするため、最初の方を飛ばす工夫（簡易的）
-                        content_text = content_text[content_text.find("まとめ"): ] if "まとめ" in content_text else content_text
-                
-                # パースできなかったり短すぎたらRSSのDescriptionも使う
-                if len(content_text) < 20 and desc:
-                    content_text = desc + "\n\n" + content_text
+                        raw_text = main_box.get_text(separator=' ', strip=True)
+                        content_text = raw_text[:300] + "...\n(スクレイピング抽出エラー)"
         else:
-            # Yahooのスクレイピング
+            # Yahooの全文(段落のみ)スクレイピング
             art_url = link
             if 'news.yahoo.co.jp/pickup/' in link:
                 pickup_req = urllib.request.Request(link, headers={'User-Agent': 'Mozilla/5.0'})
@@ -97,61 +149,63 @@ def scrape_full_text(link, site, desc):
                     
     except Exception as e:
         content_text = f"情報の取得に失敗しました。{e}"
-    
-    # 文字数制限（制限下での通信量節約）
-    if len(content_text) > MAX_TEXT_LEN:
-        content_text = content_text[:MAX_TEXT_LEN] + "...\n(省略: 詳細や続きはオリジナルサイトで)"
+        
     return content_text
 
-def main():
-    yahoo_items = []
-    togetter_items = []
+def filter_unique_and_sort(item_list, limit=50, sort=True):
+    unique_urls = set()
+    unique_items = []
     
-    for key, url in URLS.items():
-        items = fetch_rss_metadata(url, key)
-        valid_items = [i for i in items if i['dt'] is not None]
-        for item in valid_items:
-            if item['site'] == 'yahoo':
-                yahoo_items.append(item)
-            else:
-                togetter_items.append(item)
-    
-    # 重複排除とソート
-    def filter_unique_and_sort(item_list, limit=100):
-        unique_urls = set()
-        unique_items = []
-        for item in sorted(item_list, key=lambda x: x['dt'], reverse=True):
-            if item['l'] not in unique_urls:
-                unique_urls.add(item['l'])
-                unique_items.append(item)
-                if len(unique_items) >= limit:
-                    break
-        return unique_items
+    # 時間が取れる場合はソートする
+    if sort:
+        valid = [i for i in item_list if i['dt'] is not None]
+        valid.sort(key=lambda x: x['dt'], reverse=True)
+    else:
+        valid = item_list
+        
+    for item in valid:
+        if item['l'] not in unique_urls:
+            unique_urls.add(item['l'])
+            unique_items.append(item)
+            if len(unique_items) >= limit:
+                break
+    return unique_items
 
-    # それぞれ100件まで取得
-    yahoo_top_100 = filter_unique_and_sort(yahoo_items, 100)
-    togetter_top_100 = filter_unique_and_sort(togetter_items, 100)
+def main():
+    print("Fetching Yahoo RSS...")
+    yahoo_items = fetch_yahoo_rss()
+    yahoo_top_50 = filter_unique_and_sort(yahoo_items, 50, sort=True)
     
-    all_selected = yahoo_top_100 + togetter_top_100
-    all_selected.sort(key=lambda x: x['dt'], reverse=True)
+    print("Fetching Togetter Recent...")
+    togetter_top_50 = filter_unique_and_sort(fetch_togetter_recent(50), 50, sort=False)
+    
+    # Mixed sorting isn't perfect since togetter lacks exact dates, 
+    # but we can interleave them or just append.
+    all_selected = yahoo_top_50 + togetter_top_50
     
     final_data = []
-    # Scraping sequentially might take some time (200 requests = maybe 1-2 minutes)
+    total = len(all_selected)
     for i, item in enumerate(all_selected):
-        print(f"[{i+1}/{len(all_selected)}] Scraping: {item['t']}")
+        print(f"[{i+1}/{total}] Scraping: {item['t']}")
         content = scrape_full_text(item['l'], item['site'], item.get('desc', ''))
+        
+        # dtはJSONではSerializeできないので省く
         final_data.append({
             "t": item["t"],
             "l": item["l"],
             "d": item["d"],
             "cat": item["cat"],
             "site": item["site"],
+            "pv": item["pv"],
+            "time": item["time"],
             "c": content
         })
     
     os.makedirs('data', exist_ok=True)
     with open('data/news.json', 'w', encoding='utf-8') as f:
         json.dump(final_data, f, ensure_ascii=False, separators=(',', ':'))
+        
+    print(f"Done. Saved {len(final_data)} items.")
 
 if __name__ == '__main__':
     main()
