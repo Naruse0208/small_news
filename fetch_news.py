@@ -111,15 +111,23 @@ def scrape_full_text(link, site, desc):
                     extracted = []
                     for t in tweets:
                         # 投稿者名、アイコン、リンクなどの不要情報を削除
-                        for unwanted in t.select('.status_name, .user_link, .icon, .tw-user, a[href*="/user/"], .timestamp'):
+                        # .tweet_footer に日付等が含まれることがあるのでそれも追加
+                        for unwanted in t.select('.status_name, .user_link, .icon, .tw-user, a[href*="/user/"], .timestamp, .tweet_footer, .link_box'):
                             unwanted.decompose()
                         # テキストのみ取り出し
                         text = t.get_text('\n', strip=True)
+                        # 不要なx.comリンクや日時テキストへのfallback (正規表現による掃除)
+                        text = re.sub(r'x\.com/[^\s]+', '', text)
+                        text = re.sub(r'twitter\.com/[^\s]+', '', text)
+                        text = re.sub(r'pic\.x\.com/[^\s]+', '', text)
+                        text = re.sub(r'\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}', '', text)
+                        
                         # 余分な改行を整理
                         text = '\n'.join([line for line in text.split('\n') if line.strip()])
                         if text:
                             extracted.append(text)
-                    content_text = "\n---\n".join(extracted)
+                    # ポスト間に十分な改行を入れて見やすくする
+                    content_text = "\n\n━━━━━━━━━━\n\n".join(extracted)
                 
                 if not content_text:
                     # うまく取れなければフォールバック
