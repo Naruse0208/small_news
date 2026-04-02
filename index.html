@@ -55,6 +55,7 @@ nav::-webkit-scrollbar { display: none; }
 .tag-sci { background: #2ecc71; }
 .tag-loc { background: #f1c40f; color: #000; }
 .tag-tgt { background: #000000; color: #ffffff; }
+.tag-ggz { background: #d32f2f; color: #ffffff; }
 .pv { font-size: 11px; color: var(--date-color); margin-right: 8px; }
 .date { font-size: 12px; color: var(--date-color); }
 
@@ -78,6 +79,7 @@ nav::-webkit-scrollbar { display: none; }
     <div class="tab active" data-filter="all">すべて</div>
     <div class="tab" data-filter="yahoo">Yahoo!</div>
     <div class="tab" data-filter="togetter">Togetter</div>
+    <div class="tab" data-filter="gigazine">GIGAZINE</div>
   </nav>
 </header>
 <div class="container" id="container">
@@ -96,7 +98,7 @@ nav::-webkit-scrollbar { display: none; }
     <a href="#" class="av-external" id="av-external" target="_blank" rel="noopener">🌐 オリジナル記事を読む</a>
   </div>
 </div><script>
-const LABELS = { 'top':'総合', 'eco':'経済', 'it':'IT', 'int':'国際', 'dom':'国内', 'ent':'エンタメ', 'spo':'スポーツ', 'sci':'科学', 'loc':'地域', 'tgt':'X' };
+const LABELS = { 'top':'総合', 'eco':'経済', 'it':'IT', 'int':'国際', 'dom':'国内', 'ent':'エンタメ', 'spo':'スポーツ', 'sci':'科学', 'loc':'地域', 'tgt':'X', 'ggz':'GIGA' };
 const TABS = document.querySelectorAll('.tab');
 const CONTAINER = document.getElementById('container');
 
@@ -126,7 +128,7 @@ function renderData() {
   let html = '';
   list.forEach((item, i) => {
     // 過去のデータなどsiteがない場合はフォールバックとしてcatをもとにsiteを推定
-    const itmSite = item.site || (item.cat === 'tgt' ? 'togetter' : 'yahoo');
+    const itmSite = item.site || (item.cat === 'tgt' ? 'togetter' : (item.cat === 'ggz' ? 'gigazine' : 'yahoo'));
     if(currentFilter !== 'all' && itmSite !== currentFilter) return;
     const isRead = readUrls.has(item.l) ? ' read' : '';
     const timeDisp = item.time ? item.time : formatDate(item.d);

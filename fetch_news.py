@@ -98,6 +98,38 @@ def fetch_togetter_recent(limit=50):
         page += 1
     return items
 
+def fetch_gigazine_rss(limit=50):
+    items = []
+    url = "https://gigazine.net/news/rss_2.0/"
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as res:
+            xml_data = res.read()
+        root = ET.fromstring(xml_data)
+        for item in root.findall('./channel/item'):
+            title = item.find('title').text if item.find('title') is not None else ''
+            link = item.find('link').text if item.find('link') is not None else ''
+            pub_date_str = item.find('pubDate').text if item.find('pubDate') is not None else ''
+            desc = item.find('description').text if item.find('description') is not None else ''
+            dt = None
+            if pub_date_str:
+                try:
+                    dt = parsedate_to_datetime(pub_date_str).astimezone(timezone.utc)
+                except Exception:
+                    pass
+            
+            items.append({
+                "t": title, "l": link, 
+                "d": pub_date_str, "dt": dt, 
+                "cat": "ggz", "desc": desc, "site": "gigazine", 
+                "pv": "", "time": ""
+            })
+            if len(items) >= limit:
+                break
+    except Exception as e:
+        print(f"Error fetching GIGAZINE: {e}")
+    return items
+
 def scrape_full_text(link, site, desc):
     content_text = ""
     try:
@@ -136,6 +168,15 @@ def scrape_full_text(link, site, desc):
                     if main_box:
                         raw_text = main_box.get_text(separator=' ', strip=True)
                         content_text = raw_text[:300] + "...\n(スクレイピング抽出エラー)"
+        elif site == 'gigazine':
+            ggz_req = urllib.request.Request(link, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(ggz_req, timeout=5) as ggz_res:
+                soup = BeautifulSoup(ggz_res.read(), 'html.parser')
+                body = soup.select_one('.cntimage')
+                if body:
+                    content_text = body.get_text('\n', strip=True)
+                else:
+                    content_text = desc if desc else "本文の取得に失敗しました。元のリンクからお読みください。"
         else:
             # Yahooの全文(段落のみ)スクレイピング
             art_url = link
@@ -188,9 +229,12 @@ def main():
     print("Fetching Togetter Recent...")
     togetter_top_50 = filter_unique_and_sort(fetch_togetter_recent(50), 50, sort=False)
     
+    print("Fetching GIGAZINE RSS...")
+    gigazine_top_50 = filter_unique_and_sort(fetch_gigazine_rss(50), 50, sort=True)
+    
     # Mixed sorting isn't perfect since togetter lacks exact dates, 
     # but we can interleave them or just append.
-    all_selected = yahoo_top_50 + togetter_top_50
+    all_selected = yahoo_top_50 + togetter_top_50 + gigazine_top_50
     
     final_data = []
     total = len(all_selected)
