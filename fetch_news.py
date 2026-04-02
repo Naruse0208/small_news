@@ -68,20 +68,30 @@ def fetch_togetter_recent(limit=50):
                     if not href.startswith('http'):
                         href = 'https://togetter.com' + href
                     if href in seen: continue
-                    seen.add(href)
                     
                     title = l.get_text(strip=True)
                     if not title: continue
                     
+                    seen.add(href)
+                    
                     # 親要素からメタデータを漁る
                     pv_text = ""
                     time_text = ""
-                    if l.parent and l.parent.parent:
-                        parent_text = l.parent.parent.get_text(" ", strip=True)
-                        m_pv = re.search(r'(\d+)\s*pv', parent_text, re.IGNORECASE)
-                        m_time = re.search(r'(\d+[分時間日前]+)', parent_text)
-                        if m_pv: pv_text = m_pv.group(1)
-                        if m_time: time_text = m_time.group(1)
+                    inner = l.find_parent(class_='inner')
+                    if inner:
+                        # Time extraction
+                        time_el = inner.select_one('.date_label time, .date_label')
+                        if time_el:
+                            time_text = time_el.get_text(strip=True)
+                        
+                        # PV extraction (numbers only)
+                        pv_el = inner.select_one('.view_str')
+                        if pv_el:
+                            pv_text = re.search(r'(\d+)', pv_el.get_text(strip=True))
+                            if pv_text:
+                                pv_text = pv_text.group(1)
+                            else:
+                                pv_text = ""
                         
                     items.append({
                         "t": title, "l": href,
