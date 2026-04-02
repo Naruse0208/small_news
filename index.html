@@ -304,7 +304,7 @@ CONTAINER.addEventListener('touchend', e => {
 loadNews();
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js?v=5').then(reg => {
+  navigator.serviceWorker.register('sw.js?v=6').then(reg => {
     reg.onupdatefound = () => {
       const installingWorker = reg.installing;
       if (installingWorker) {
