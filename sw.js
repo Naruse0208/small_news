@@ -1,10 +1,9 @@
-const CACHE_NAME = 'small-news-v3';
+const CACHE_NAME = 'small-news-v4';
 const ASSETS = [
   './',
   'index.html',
   'manifest.json',
-  'assets/icon-192.png',
-  'assets/icon-512.png'
+  'assets/icon.svg'
 ];
 
 self.addEventListener('install', e => {

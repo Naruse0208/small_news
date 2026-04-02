@@ -76,8 +76,7 @@ nav::-webkit-scrollbar { display: none; }
 <div class="refresh-indicator" id="refresh-indicator">↓ 更新するには下に引く...</div>
 <header>
   <nav id="tabs">
-    <div class="tab active" data-filter="all">すべて</div>
-    <div class="tab" data-filter="yahoo">Yahoo!</div>
+    <div class="tab active" data-filter="yahoo">Yahoo!</div>
     <div class="tab" data-filter="togetter">Togetter</div>
     <div class="tab" data-filter="gigazine">GIGAZINE</div>
   </nav>
@@ -112,7 +111,7 @@ function formatDate(dStr) {
 
 let currentData = [];
 let readUrls = new Set(JSON.parse(localStorage.getItem('small_news_read') || '[]'));
-let currentFilter = 'all';
+let currentFilter = 'yahoo';
 
 function markAsRead(url) {
   if(!readUrls.has(url)) {

@@ -138,7 +138,14 @@ def scrape_full_text(link, site, desc):
             with urllib.request.urlopen(tgt_req, timeout=5) as tgt_res:
                 soup = BeautifulSoup(tgt_res.read(), 'html.parser')
                 # 1ページ目のツイート群を取得
-                tweets = soup.select('.type_tweet, .tweet_list .list_item, .tweet_box, div[data-tweet]')
+                tweets_raw = soup.select('.type_tweet, .tweet_list .list_item, .tweet_box, div[data-tweet]')
+                
+                # 親要素が存在する要素を除外（子要素＝具体的なツイート内容のみを保持）して重複を防ぐ
+                tweets = []
+                for t in tweets_raw:
+                    if not any(c in tweets_raw for c in t.descendants):
+                        tweets.append(t)
+                        
                 if tweets:
                     extracted = []
                     for t in tweets:
@@ -174,7 +181,9 @@ def scrape_full_text(link, site, desc):
                 soup = BeautifulSoup(ggz_res.read(), 'html.parser')
                 body = soup.select_one('.cntimage')
                 if body:
-                    content_text = body.get_text('\n', strip=True)
+                    raw_text = body.get_text('\n', strip=True)
+                    lines = [line.strip() for line in raw_text.split('\n') if line.strip()]
+                    content_text = '\n\n'.join(lines)
                 else:
                     content_text = desc if desc else "本文の取得に失敗しました。元のリンクからお読みください。"
         else:
