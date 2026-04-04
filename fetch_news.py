@@ -150,11 +150,18 @@ def fetch_gigazine_rss(limit=50):
 
 def scrape_full_text(link, site, desc):
     content_text = ""
+    tags = []
     try:
         if site == 'togetter':
             tgt_req = urllib.request.Request(link, headers={'User-Agent': 'Mozilla/5.0'})
             with urllib.request.urlopen(tgt_req, timeout=5) as tgt_res:
                 soup = BeautifulSoup(tgt_res.read(), 'html.parser')
+                
+                # タグを取得: .tag_box a から5文字以下を最大4つ
+                tag_els = soup.select('.tag_box a')
+                all_tags = [a.get_text(strip=True) for a in tag_els if a.get_text(strip=True)]
+                tags = [t for t in all_tags if len(t) <= 5][:4]
+                
                 # 1ページ目のツイート群を取得
                 tweets_raw = soup.select('.type_tweet, .tweet_list .list_item, .tweet_box, div[data-tweet]')
                 
@@ -227,7 +234,7 @@ def scrape_full_text(link, site, desc):
     except Exception as e:
         content_text = f"情報の取得に失敗しました。{e}"
         
-    return content_text
+    return content_text, tags
 
 def filter_unique_and_sort(item_list, limit=50, sort=True):
     unique_urls = set()
@@ -267,7 +274,7 @@ def main():
     total = len(all_selected)
     for i, item in enumerate(all_selected):
         print(f"[{i+1}/{total}] Scraping: {item['t']}")
-        content = scrape_full_text(item['l'], item['site'], item.get('desc', ''))
+        content, scraped_tags = scrape_full_text(item['l'], item['site'], item.get('desc', ''))
         
         # dtはJSONではSerializeできないので省く
         entry = {
@@ -283,6 +290,9 @@ def main():
         # GIGAZINEのタグがあれば追加
         if item.get("tag"):
             entry["tag"] = item["tag"]
+        # Togetterのタグがあれば追加 (5文字以下×最大4つ)
+        if scraped_tags:
+            entry["tags"] = scraped_tags
         final_data.append(entry)
     
     os.makedirs('data', exist_ok=True)

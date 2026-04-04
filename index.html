@@ -74,6 +74,9 @@ nav::-webkit-scrollbar { display: none; }
 .tag-ggz-memo { background: #546e7a; }
 .tag-ggz-head { background: #37474f; }
 .tag-ggz-other { background: #d32f2f; }
+/* Togetter multi-tag pills */
+.tgt-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.tgt-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; background: #222; color: #fff; white-space: nowrap; }
 .pv { font-size: 11px; color: var(--date-color); margin-right: 8px; }
 .date { font-size: 12px; color: var(--date-color); }
 
@@ -159,10 +162,17 @@ function renderData() {
     const isRead = readUrls.has(item.l) ? ' read' : '';
     const timeDisp = item.time ? item.time : formatDate(item.d);
     const pvDisp = item.pv ? `<span class="pv">👀 ${item.pv} pv</span>` : '';
+    // Togetterの複数タグ表示
+    let tagHtml;
+    if(item.tags && item.tags.length > 0) {
+      tagHtml = `<div class="tgt-tags">${item.tags.map(t => `<span class="tgt-tag">${t}</span>`).join('')}</div>`;
+    } else {
+      tagHtml = `<span class="tag tag-${item.tag ? (GGZ_TAG_CLASS[item.tag] || 'ggz-other') : item.cat}">${item.tag || LABELS[item.cat]}</span>`;
+    }
     html += `<div class="article${isRead}" data-index="${i}">
         <div class="title">${item.t}</div>
         <div class="meta">
-            <span class="tag tag-${item.tag ? (GGZ_TAG_CLASS[item.tag] || 'ggz-other') : item.cat}">${item.tag || LABELS[item.cat]}</span>
+            ${tagHtml}
             <div>
                 ${pvDisp}
                 <span class="date">${timeDisp}</span>
