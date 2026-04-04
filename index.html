@@ -188,6 +188,7 @@ const avTitle = document.getElementById('av-title');
 const avDate = document.getElementById('av-date');
 const avContent = document.getElementById('av-content');
 const avExt = document.getElementById('av-external');
+const avBody = document.querySelector('.av-body');
 
 CONTAINER.addEventListener('click', (e) => {
   const artDiv = e.target.closest('.article');
@@ -199,6 +200,7 @@ CONTAINER.addEventListener('click', (e) => {
       avDate.textContent = formatDate(item.d);
       avContent.textContent = item.c || "(本文が見つかりませんでした)";
       avExt.href = item.l;
+      avBody.scrollTop = 0;
       articleView.classList.add('open');
       
       // 既読マークをつける
