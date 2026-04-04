@@ -112,6 +112,7 @@ def fetch_gigazine_rss(limit=50):
     items = []
     url = "https://gigazine.net/news/rss_2.0/"
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    dc_ns = 'http://purl.org/dc/elements/1.1/'
     try:
         with urllib.request.urlopen(req, timeout=10) as res:
             xml_data = res.read()
@@ -128,11 +129,18 @@ def fetch_gigazine_rss(limit=50):
                 except Exception:
                     pass
             
+            # dc:subject からタグを取得 (例: "AI," や "動画, ハードウェア, レビュー,")
+            tag = ''
+            subject_el = item.find(f'{{{dc_ns}}}subject')
+            if subject_el is not None and subject_el.text:
+                tags_list = [t.strip().rstrip(',') for t in subject_el.text.split(',') if t.strip().rstrip(',')]
+                tag = tags_list[0] if tags_list else ''
+            
             items.append({
                 "t": title, "l": link, 
                 "d": pub_date_str, "dt": dt, 
                 "cat": "ggz", "desc": desc, "site": "gigazine", 
-                "pv": "", "time": ""
+                "pv": "", "time": "", "tag": tag
             })
             if len(items) >= limit:
                 break
@@ -262,7 +270,7 @@ def main():
         content = scrape_full_text(item['l'], item['site'], item.get('desc', ''))
         
         # dtはJSONではSerializeできないので省く
-        final_data.append({
+        entry = {
             "t": item["t"],
             "l": item["l"],
             "d": item["d"],
@@ -271,7 +279,11 @@ def main():
             "pv": item["pv"],
             "time": item["time"],
             "c": content
-        })
+        }
+        # GIGAZINEのタグがあれば追加
+        if item.get("tag"):
+            entry["tag"] = item["tag"]
+        final_data.append(entry)
     
     os.makedirs('data', exist_ok=True)
     with open('data/news.json', 'w', encoding='utf-8') as f:

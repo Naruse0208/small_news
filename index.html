@@ -59,6 +59,21 @@ nav::-webkit-scrollbar { display: none; }
 .tag-loc { background: #f1c40f; color: #000; }
 .tag-tgt { background: #000000; color: #ffffff; }
 .tag-ggz { background: #d32f2f; color: #ffffff; }
+/* GIGAZINE tag color variants */
+.tag-ggz-ai { background: #7c4dff; }
+.tag-ggz-rev { background: #ff6d00; }
+.tag-ggz-sci { background: #00bfa5; }
+.tag-ggz-sec { background: #f44336; }
+.tag-ggz-net { background: #2979ff; }
+.tag-ggz-game { background: #6200ea; }
+.tag-ggz-hw { background: #455a64; }
+.tag-ggz-sw { background: #0091ea; }
+.tag-ggz-food { background: #e65100; }
+.tag-ggz-anime { background: #e91e63; }
+.tag-ggz-movie { background: #8d6e63; }
+.tag-ggz-memo { background: #546e7a; }
+.tag-ggz-head { background: #37474f; }
+.tag-ggz-other { background: #d32f2f; }
 .pv { font-size: 11px; color: var(--date-color); margin-right: 8px; }
 .date { font-size: 12px; color: var(--date-color); }
 
@@ -101,6 +116,15 @@ nav::-webkit-scrollbar { display: none; }
   </div>
 </div><script>
 const LABELS = { 'top':'総合', 'eco':'経済', 'it':'IT', 'int':'国際', 'dom':'国内', 'ent':'エンタメ', 'spo':'スポーツ', 'sci':'科学', 'loc':'地域', 'tgt':'X', 'ggz':'GIGA' };
+// GIGAZINEタグ → CSSクラス名マッピング
+const GGZ_TAG_CLASS = {
+  'AI':'ggz-ai', 'レビュー':'ggz-rev', 'サイエンス':'ggz-sci', 'セキュリティ':'ggz-sec',
+  'ネットサービス':'ggz-net', 'ゲーム':'ggz-game', 'ハードウェア':'ggz-hw', 'ソフトウェア':'ggz-sw',
+  '試食':'ggz-food', '食':'ggz-food', 'アニメ':'ggz-anime', 'マンガ':'ggz-anime',
+  '映画':'ggz-movie', '動画':'ggz-movie', 'メモ':'ggz-memo', 'ヘッドライン':'ggz-head',
+  '取材':'ggz-rev', '乗り物':'ggz-hw', '生き物':'ggz-sci', '創作':'ggz-anime',
+  'スマートフォン':'ggz-hw', 'スマホ':'ggz-hw', 'ウェブアプリ':'ggz-net',
+};
 const TABS = document.querySelectorAll('.tab');
 const CONTAINER = document.getElementById('container');
 
@@ -138,7 +162,7 @@ function renderData() {
     html += `<div class="article${isRead}" data-index="${i}">
         <div class="title">${item.t}</div>
         <div class="meta">
-            <span class="tag tag-${item.cat}">${LABELS[item.cat]}</span>
+            <span class="tag tag-${item.tag ? (GGZ_TAG_CLASS[item.tag] || 'ggz-other') : item.cat}">${item.tag || LABELS[item.cat]}</span>
             <div>
                 ${pvDisp}
                 <span class="date">${timeDisp}</span>
